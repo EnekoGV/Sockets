@@ -16,7 +16,8 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-#define PORT 8809
+#define DST_PORT 8809
+#define SRC_PORT 8810
 
 int main(int argc, char** argv){	
 
@@ -37,7 +38,7 @@ int main(int argc, char** argv){
 		memset (&server, 0, sizeof(server));
 		server.sin_family = AF_INET;
 		server.sin_addr.s_addr = INADDR_ANY;
-		server.sin_port = htons(PORT); 	
+		server.sin_port = htons(DST_PORT); 	
 
 		bind(sd,(struct sockaddr*)&server,sizeof(server));
 		int addrlen = sizeof (struct sockaddr_in);
@@ -49,8 +50,8 @@ int main(int argc, char** argv){
 	}
 
 	//CLIENT CODE	
-	struct sockaddr_in client_2;
-	struct sockaddr_in server_2;
+	struct sockaddr_in client;
+	struct sockaddr_in dest;
 	struct hostent *hp; 
 
 	int fdc = socket(AF_INET, SOCK_DGRAM, 0);
@@ -59,28 +60,32 @@ int main(int argc, char** argv){
 		exit(1); 
 	}
 	
-	hp = gethostbyname("localhost");
+	hp = gethostbyname("broadcast");
 	if(hp == NULL){
 		perror("Error: Can not get host information. \n"); 
 	}
+	int bc_perm = 1;
+	if(setsockopt(fdc, SOL_SOCKET,SO_BROADCAST,(void *) &bc_perm, sizeof(bc_perm)) < 0){
+		perror("Error.");
+	}
 
 	//struct sockaddr_in client;
-	memset (&client_2, 0, sizeof(client_2)); 
-	client_2.sin_family = AF_INET;
-	client_2.sin_addr.s_addr = htonl(INADDR_ANY);
-	client_2.sin_port = htons(PORT);
+	memset (&client, 0, sizeof(client)); 
+	client.sin_family = AF_INET;
+	client.sin_addr.s_addr = htonl(INADDR_ANY);
+	client.sin_port = htons(SRC_PORT);
 
 	//struct sockaddr_in server; 
-	memset (&server_2, 0, sizeof(server_2)); 
-	server_2.sin_family = AF_INET;
-	server_2.sin_addr.s_addr = ((struct in_addr*)(hp->h_addr))->s_addr;//htonl(SO_BROADCAST);//((struct in_addr*)(hp->h_addr))->s_addr;
-	server_2.sin_port = htons(PORT);
+	memset (&dest, 0, sizeof(dest)); 
+	dest.sin_family = AF_INET;
+	dest.sin_addr.s_addr = ((struct in_addr*)(hp->h_addr))->s_addr;
+	dest.sin_port = htons(DST_PORT);
 	
-	bind(fdc,(struct sockaddr*)&server_2, sizeof(server_2));
+	bind(fdc,(struct sockaddr*)&client, sizeof(client));
 	
 	int a = 1;
 	while(1){
-		sendto(fdc, &a, sizeof(int), 0, (struct sockaddr*)&server_2, sizeof(server_2));
+		sendto(fdc, &a, sizeof(int), 0, (struct sockaddr*)&dest, sizeof(dest));
 		sleep(5);
 	}
 	return (EXIT_SUCCESS);	
